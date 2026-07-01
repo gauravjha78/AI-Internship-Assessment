@@ -30,7 +30,7 @@ MODELS_DIR = os.path.join(os.path.dirname(__file__), "..", "models")
 @st.cache_resource
 def load_artifacts():
     scaler = joblib.load(os.path.join(MODELS_DIR, "scaler.pkl"))
-    feature_names = joblib.load(os.path.join(MODELS_DIR, "feature_names.pkl"))
+    feature_names = joblib.load(os.path.join(MODELS_DIR, "feature_columns.pkl"))
     label_encoders = joblib.load(os.path.join(MODELS_DIR, "label_encoders.pkl"))
     le_demand = joblib.load(os.path.join(MODELS_DIR, "label_encoder_demand.pkl"))
     le_resource = joblib.load(os.path.join(MODELS_DIR, "label_encoder_resource.pkl"))
@@ -140,29 +140,25 @@ if predict_btn:
 
     # recompute engineered features from current inputs
     row["revenue_per_tourist"] = row["tourism_revenue_yuan"] / max(row["tourist_arrivals"], 1)
-    row["international_share"] = row["international_tourists"] / max(row["tourist_arrivals"], 1)
-    row["infra_composite"] = np.mean([
-        row["infrastructure_availability_score"],
-        row["transport_service_score"],
-        row["accommodation_capacity_score"],
+    row["international_ratio"] = row["international_tourists"] / max(row["tourist_arrivals"], 1)
+    row["infra_score"] = np.mean([
+    row["infrastructure_availability_score"],
+    row["transport_service_score"],
+    row["accommodation_capacity_score"],
     ])
     row["revenue_efficiency"] = row["tourism_revenue_yuan"] / max(row["operational_cost_yuan"], 1)
-    row["digital_engagement"] = np.mean([
-        row["online_search_trend_index"],
-        row["social_media_sentiment_score"] * 100,
-        row["e_ticket_booking_rate"],
-    ])
 
     # assemble in correct column order
     X = pd.DataFrame([[row[f] for f in feature_names]], columns=feature_names)
-    X_scaled = scaler.transform(X)
 
-    demand_probs = model_demand.predict_proba(X_scaled)[0]
+    demand_probs = model_demand.predict_proba(X)[0]
+
     demand_pred_idx = int(np.argmax(demand_probs))
     demand_label = le_demand.inverse_transform([demand_pred_idx])[0]
     demand_confidence = demand_probs[demand_pred_idx]
 
-    resource_probs = model_resource.predict_proba(X_scaled)[0]
+    resource_probs = model_resource.predict_proba(X)[0]
+
     resource_pred_idx = int(np.argmax(resource_probs))
     resource_label = le_resource.inverse_transform([resource_pred_idx])[0]
     resource_confidence = resource_probs[resource_pred_idx]
